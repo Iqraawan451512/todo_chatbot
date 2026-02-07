@@ -1,0 +1,114 @@
+openapi: "3.1.0"
+info:
+  title: Todo AI Chatbot API
+  version: "1.0.0"
+  description: |
+    Single-endpoint conversational API for AI-powered todo management.
+    All task operations flow through this endpoint via the AI agent
+    and MCP tools.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /api/{user_id}/chat:
+    post:
+      summary: Send a chat message
+      description: |
+        The only conversational endpoint. Receives a user message,
+        runs the AI agent with MCP tools, and returns the assistant
+        response. Creates a new conversation if conversation_id is
+        not provided.
+      operationId: chat
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Authenticated user identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: Successful chat response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+        "400":
+          description: Invalid request (empty message)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        conversation_id:
+          type: integer
+          nullable: true
+          description: |
+            Existing conversation ID to continue. If omitted or null,
+            a new conversation is created.
+        message:
+          type: string
+          minLength: 1
+          description: User's natural language message
+
+    ChatResponse:
+      type: object
+      required:
+        - conversation_id
+        - response
+      properties:
+        conversation_id:
+          type: integer
+          description: Active conversation ID (new or existing)
+        response:
+          type: string
+          description: Assistant's natural language reply
+        tool_calls:
+          type: array
+          nullable: true
+          description: MCP tools invoked during this turn
+          items:
+            $ref: "#/components/schemas/ToolCall"
+
+    ToolCall:
+      type: object
+      properties:
+        tool:
+          type: string
+          description: MCP tool name (e.g., add_task, list_tasks)
+        arguments:
+          type: object
+          description: Arguments passed to the tool
+        result:
+          type: object
+          description: Result returned by the tool
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
