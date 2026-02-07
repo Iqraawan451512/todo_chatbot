@@ -1,0 +1,38 @@
+# ── TodoHub Backend — Helm Values ────────────────────────────────
+
+replicaCount: 2
+
+image:
+  repository: todohub-backend
+  tag: latest
+  pullPolicy: Never  # Minikube uses local images
+
+service:
+  type: ClusterIP
+  port: 8000
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Secrets — override at install time:
+#   helm install ... --set secrets.databaseUrl="..." --set secrets.openaiApiKey="..."
+secrets:
+  databaseUrl: "postgresql://user:password@host/db?sslmode=require"
+  openaiApiKey: "sk-your-key-here"
+
+healthCheck:
+  path: /health
+  port: 8000
+  initialDelay: 10
+  period: 30
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilization: 70

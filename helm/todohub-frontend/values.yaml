@@ -1,0 +1,36 @@
+# ── TodoHub Frontend — Helm Values ───────────────────────────────
+
+replicaCount: 2
+
+image:
+  repository: todohub-frontend
+  tag: latest
+  pullPolicy: Never  # Minikube uses local images
+
+service:
+  type: NodePort
+  port: 3000
+  nodePort: 30000
+
+config:
+  apiUrl: "http://todohub-todohub-backend:8000"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+healthCheck:
+  path: /
+  port: 3000
+  initialDelay: 15
+  period: 30
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilization: 70

@@ -1,0 +1,13 @@
+apiVersion: v2
+name: todohub-backend
+description: TodoHub Backend — FastAPI + MCP + OpenAI Agents
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - fastapi
+  - todo
+  - chatbot
+  - mcp
+maintainers:
+  - name: TodoHub Team
