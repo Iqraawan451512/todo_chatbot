@@ -60,11 +60,75 @@ export default function ChatWidget({ userId }: ChatWidgetProps) {
   // Collecting step tracker (for multi-step flows)
   const [step, setStep] = useState(0);
 
+  // Voice input state (English only — browser limitation)
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, flowState, step]);
+
+  // ── Voice input setup (English only) ───────────────────────────
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognition = (window as any).SpeechRecognition
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setVoiceSupported(true);
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        const transcript = event.results?.[0]?.[0]?.transcript;
+        if (transcript) {
+          setFreeText(transcript);
+          setVoiceError(null);
+        }
+        setIsListening(false);
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (event: any) => {
+        setIsListening(false);
+        const errorType = event?.error || "unknown";
+        if (errorType === "no-speech" || errorType === "aborted") {
+          // Normal timeout — just stop silently
+          return;
+        } else if (errorType === "not-allowed") {
+          setVoiceError("Microphone access denied.");
+        } else {
+          setVoiceError(`Voice error: ${errorType}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleVoice = useCallback(() => {
+    if (!recognitionRef.current) return;
+    setVoiceError(null);
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  }, [isListening]);
 
   // ── API call helper ────────────────────────────────────────────
   const doSend = useCallback(
@@ -741,23 +805,51 @@ export default function ChatWidget({ userId }: ChatWidgetProps) {
           </div>
         )}
 
-        {/* Free text input — always visible */}
+        {/* Free text input + voice — always visible */}
         <div style={{
           display: "flex",
-          gap: "8px",
+          gap: "6px",
           marginTop: "10px",
+          alignItems: "center",
         }}>
+          {/* Mic button (English voice) */}
+          {voiceSupported && (
+            <button
+              onClick={toggleVoice}
+              disabled={loading}
+              title={isListening ? "Stop listening" : "Start voice input"}
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "50%",
+                border: isListening ? "2px solid var(--color-danger)" : "1px solid var(--color-border)",
+                background: isListening ? "#FEF2F2" : "var(--color-surface)",
+                color: isListening ? "var(--color-danger)" : "var(--color-text-muted)",
+                cursor: "pointer",
+                fontSize: "1.1rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.15s ease",
+                flexShrink: 0,
+                animation: isListening ? "pulse 1.5s ease-in-out infinite" : "none",
+              }}
+            >
+              🎤
+            </button>
+          )}
           <input
             type="text"
             value={freeText}
             onChange={(e) => setFreeText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleFreeTextSend()}
-            placeholder="Or type a message..."
+            placeholder={isListening ? "Listening..." : "Type in English, Urdu, or Roman Urdu..."}
             disabled={loading}
             style={{
               ...inputStyle,
               flex: 1,
               background: "var(--color-surface)",
+              borderColor: isListening ? "var(--color-danger)" : undefined,
             }}
           />
           <button
@@ -772,6 +864,16 @@ export default function ChatWidget({ userId }: ChatWidgetProps) {
             Send
           </button>
         </div>
+        {/* Voice error feedback */}
+        {voiceError && (
+          <p style={{
+            margin: "6px 0 0",
+            fontSize: "0.75rem",
+            color: "var(--color-danger)",
+          }}>
+            {voiceError}
+          </p>
+        )}
       </div>
     </div>
   );
